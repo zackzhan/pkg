@@ -1,11 +1,14 @@
 package ip
 
-import "net"
+import (
+	"errors"
+	"net"
+)
 
-func GetLocalIP() string {
+func GetLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	for _, addr := range addrs {
@@ -15,11 +18,11 @@ func GetLocalIP() string {
 		}
 
 		if ipNet.IP.To4() != nil {
-			return ipNet.IP.String()
+			return ipNet.IP.String(), nil
 		} else if ipNet.IP.To16() != nil {
-			return ipNet.IP.String()
+			return ipNet.IP.String(), nil
 		}
 	}
 
-	return ""
+	return "", errors.New("no suitable local IP address found")
 }

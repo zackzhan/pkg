@@ -3,14 +3,23 @@ package security
 import (
 	"testing"
 
-	dongle "github.com/golang-module/dongle"
+	dongle "github.com/dromara/dongle"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func TestGenerateFromPassword(t *testing.T) {
-	password, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-	t.Log(string(password), err)
+	originalPassword := []byte("123456")
+	hashedPassword, err := bcrypt.GenerateFromPassword(originalPassword, bcrypt.DefaultCost)
+
+	assert.NoError(t, err, "bcrypt.GenerateFromPassword should not return an error")
+	t.Log("Generated hash:", string(hashedPassword)) // Log the hash
+
+	// Only compare if generation was successful
+	if err == nil {
+		err = bcrypt.CompareHashAndPassword(hashedPassword, originalPassword)
+		assert.NoError(t, err, "bcrypt.CompareHashAndPassword should not return an error, indicating hash matches password")
+	}
 }
 
 func TestPublicKey(t *testing.T) {
@@ -46,11 +55,11 @@ e+XyctAwL/5c6G0A0bkOlX6c
 	pwd := "123456"
 	// debug
 	publicKey := "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzUeJllPEMpOLJBD4wofN\ng8Ld+9EwTHyS4Y+nmVChs/hvOdGH+EedwV5P5skqyK1452u/lxL0dHGK+G896Z1g\nvlXpcNHnRfr8Uy4mRvey8/r94Quz2KUx1egCK9FJIJ9fVn+nKpenB9GPCgR2kqCD\nO8pSQrx59yRwEfxKtPyxW8fTE/7giiXtiO9wHp257yXuJSGAEeuBSR8g1K4sO8NA\nF/BfqlZoEAxLL2BwhjOfqGiwJIq6iMWm94Qofg1sCAfvS1ZaxyS3DsMZC1OgAG1Z\ndxLAcR8puvL4pHkcEDHYp3fP6muKdUZdhsO2YwQNzQZZEh5brktB+zB72/D/D2mv\nwQIDAQAB\n-----END PUBLIC KEY-----\n"
-	cipherText := dongle.Encrypt.FromString(pwd).ByRsa(publicKey)
+	cipherText := dongle.Encrypt.FromString(pwd).ByRsa([]byte(publicKey))
 	t.Log(cipherText.ToBase64String())
 
 	cipherText2 := "wAesppuohmg/YBS65DAWK0nOJ8fblR8n86qbo6JLMgWGwyD+8gyhcJRm+jBvwJKT0yAvhYb5hNP7GkF6OF9W8omR1kjpVEImM74Y1xpIZA3bGWDxzlSjLcOKc0iytcqd3z7NgS5XO5vk5i+RPBXODLayw2XxvT6t/wTIMhCIDtA5K/cAyUttfQOUqIoRPsdikxlcKXdgC2+YiiN0A9szLE5wZArznD0qa95asgXdh4UbhegrRrpwEAV/pvYZ7pQcMNmzpzvHsac99+OgQW73q25NVBCRdAbuudTuDg6DcU1uX8QVkTeorQZkO+p+nwawsLwdxKb5+9DrvoTTJvAW0A=="
-	toString := dongle.Decrypt.FromBase64String(cipherText2).ByRsa(privateKey).ToString()
+	toString := dongle.Decrypt.FromBase64String(cipherText2).ByRsa([]byte(privateKey)).ToString()
 	t.Log(toString)
 
 	assert.Equal(t, pwd, toString)

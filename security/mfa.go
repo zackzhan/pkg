@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -26,7 +25,7 @@ func (m *GoogleAuthenticator2FaSha1) Totp() (code string, err error) {
 	count := uint64(time.Now().Unix()) / m.ExpireSecond
 	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(m.Base32NoPaddingEncodedSecret)
 	if err != nil {
-		return "", errors.New("https://github.com/google/google-authenticator/wiki/Key-Uri-Format,REQUIRED: The base32NoPaddingEncodedSecret parameter is an arbitrary key value encoded in Base32 according to RFC 3548. The padding specified in RFC 3548 section 2.2 is not required and should be omitted.")
+		return "", fmt.Errorf("failed to decode base32 secret: %w", err)
 	}
 	codeInt := hotp(key, count, m.Digits)
 	intFormat := fmt.Sprintf("%%0%dd", m.Digits) //数字长度补零
@@ -34,11 +33,23 @@ func (m *GoogleAuthenticator2FaSha1) Totp() (code string, err error) {
 }
 
 // QrString google authenticator 扫描二维码的二维码字符串
-func (m *GoogleAuthenticator2FaSha1) QrString(label, issuer string) (qr string) {
-	issuer = url.QueryEscape(label) //有一些小程序MFA不支持
+func (m *GoogleAuthenticator2FaSha1) QrString(accountName, issuerName string) (qr string) {
+	// Explicitly define the unescaped label string for the path
+	unscapedLabelInPath := issuerName + ":" + accountName
+	// Then escape it
+	escapedLabelInPath := url.PathEscape(unscapedLabelInPath)
+
+	// Explicitly define and escape the issuer for the query parameter
+	escapedIssuerQueryParam := url.QueryEscape(issuerName)
+
 	//文档 https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 	//otpauth://totp/ACME%20Co:john.doe@email.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=ACME%20Co&algorithm=SHA1&digits=6&period=30
-	return fmt.Sprintf(`otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=%d`, label, m.Base32NoPaddingEncodedSecret, issuer, m.Digits, m.ExpireSecond)
+	return fmt.Sprintf(`otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=%d`,
+		escapedLabelInPath, // Use the new variable for the path
+		m.Base32NoPaddingEncodedSecret,
+		escapedIssuerQueryParam, // Use the new variable for the issuer query parameter
+		m.Digits,
+		m.ExpireSecond)
 }
 
 func hotp(key []byte, counter uint64, digits int) int {
